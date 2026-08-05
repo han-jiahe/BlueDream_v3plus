@@ -86,7 +86,7 @@ BlueDream_v3plus/
 
 - #### Models : obtain `soccana.pt` (object detection) and `soccana_keypoint.pt` (soccer field keypoint detection)
 > I. You can run the command **`python scripts/download_models.py`** to download the pre-trained models to the `models/` from HuggingFace automatically.  
-> II. If you want to train models in person, please refer to [🔗 Models and Datasets](#Models), remember to rename the trained weight files and place them in the `models/`.
+> II. If you want to train models in person, please refer to [🔗 Models and Datasets](https://github.com/han-jiahe/BlueDream_v3plus/tree/main#-models--datasets-), remember to rename the trained weight files and place them in the `models/`.
 
 
 ### 1. Local Web (Chinese version)

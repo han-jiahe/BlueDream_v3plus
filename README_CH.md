@@ -85,7 +85,7 @@ BlueDream_v3plus/
 
 - #### 模型文件：需获取 `soccana.pt`（目标检测）与 `soccana_keypoint.pt`（球场关键点检测）
 > 方式一：运行 **`python scripts/download_models.py`**，脚本将从 HuggingFace（自动使用国内镜像 hf-mirror.com）下载预训练模型至 `models/` 目录。  
-> 方式二：若需自行训练模型，请参考 [🔗 模型与数据集](#Models)，并将训练好的权重文件重命名后放置于 `models/` 目录下。
+> 方式二：若需自行训练模型，请参考 [🔗 模型与数据集](https://github.com/han-jiahe/BlueDream_v3plus/blob/main/README_CH.md#-%E6%A8%A1%E5%9E%8B%E4%B8%8E%E6%95%B0%E6%8D%AE%E9%9B%86-)，并将训练好的权重文件重命名后放置于 `models/` 目录下。
 
 
 ### 1. 本地 Web 服务
