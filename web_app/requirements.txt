@@ -1,0 +1,12 @@
+# BlueDream v3plus - Web App Dependencies
+# Install: pip install -r requirements.txt (from web_app/ directory)
+
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+numpy>=1.24.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
+matplotlib>=3.7.0
+shapely>=2.0.0
+pandas>=2.0.0

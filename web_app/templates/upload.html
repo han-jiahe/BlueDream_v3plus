@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueDream Local v3</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav class="navbar">
+    <span class="logo">BlueDream Local v3</span>
+    <span class="tagline">个人足球视频分析工具 | GPU: ModelArts T4</span>
+</nav>
+<main class="container">
+
+<h2>工作流程</h2>
+<div class="steps">
+    <div class="step"><span class="step-num">1</span> 上传视频（完整不切分）</div>
+    <div class="step"><span class="step-num">2</span> 传视频到 ModelArts → GPU 检测</div>
+    <div class="step"><span class="step-num">3</span> 上传 CSV 结果 + 选择分析类型</div>
+    <div class="step"><span class="step-num">4</span> 查看图表</div>
+</div>
+
+<div class="card">
+    <h3>Step 1: 上传视频</h3>
+    <div class="upload-zone" id="vid-zone">
+        <p>拖拽视频到此处，或点击选择</p>
+        <input type="file" id="vid-input" accept=".mp4,.avi,.mov,.mkv,.webm,.ts" hidden>
+        <button class="btn" onclick="document.getElementById('vid-input').click()">选择视频</button>
+    </div>
+    <div id="vid-status"></div>
+</div>
+
+<div class="card" id="csv-card" style="display:none">
+    <h3>Step 2 & 3: 上传 CSV 检测结果 (从 ModelArts)</h3>
+    <p class="hint">将 ModelArts 上的 player_final_real_coords_*.csv 上传</p>
+    <input type="file" id="csv-input" accept=".csv" multiple hidden>
+    <button class="btn" onclick="document.getElementById('csv-input').click()">选择 CSV 文件</button>
+    <div id="csv-status"></div>
+
+    <div style="margin-top:1rem">
+        <label><b>分析类型:</b></label>
+        <select id="analysis-type" style="margin-left:.5rem; padding:.4rem; font-size:1rem">
+            <option value="full">完整分析 (VI时序+密度+排名+Top3热力图)</option>
+            <option value="player">单球员分析 (VI+球队对比+热力图)</option>
+            <option value="trajectory">轨迹可视化 (多球员+足球)</option>
+            <option value="voronoi">Voronoi 多边形 (按%选帧)</option>
+            <option value="vi_only">仅 VI 分布 (时序+密度+排名)</option>
+            <option value="heatmap">仅热力图</option>
+        </select>
+    </div>
+
+    <div id="player-id-group" style="display:none; margin-top:.5rem">
+        <label>参数:</label>
+        <input type="text" id="player-id-input" placeholder="球员ID / 轨迹ID列表 / Voronoi百分比" style="padding:.4rem; margin-left:.5rem; width:220px">
+    </div>
+    <div id="ball-group" style="display:none; margin-top:.5rem">
+        <label><input type="checkbox" id="include-ball"> 同时显示足球轨迹</label>
+    </div>
+
+    <button class="btn btn-primary" id="analyze-btn" disabled onclick="runAnalysis()">开始 VI 分析</button>
+    <div id="analyze-status" class="loading" style="display:none">
+        <p>正在分析中...</p>
+    </div>
+</div>
+
+<script>
+document.getElementById('analysis-type').addEventListener('change', function(){
+    var v = this.value;
+    document.getElementById('player-id-group').style.display = (v === 'player' || v === 'heatmap' || v === 'trajectory' || v === 'voronoi') ? 'block' : 'none';
+    document.getElementById('ball-group').style.display = (v === 'trajectory') ? 'block' : 'none';
+});
+</script>
+
+<div class="card" id="results-card" style="display:none">
+    <h3>Step 4: 分析结果</h3>
+    <div id="results-content"></div>
+</div>
+
+</main>
+<footer><p>BlueDream Local v3 | GPU: ModelArts T4 | 本地 VI 分析</p></footer>
+
+<script>
+var videoId = '';
+var taskId = '';
+var csvFiles = [];
+
+// === Video Upload ===
+(function() {
+var z = document.getElementById('vid-zone');
+var fi = document.getElementById('vid-input');
+var st = document.getElementById('vid-status');
+z.addEventListener('dragover', function(e){ e.preventDefault(); z.classList.add('dragover'); });
+z.addEventListener('dragleave', function(){ z.classList.remove('dragover'); });
+z.addEventListener('drop', function(e){ e.preventDefault(); z.classList.remove('dragover'); fi.files = e.dataTransfer.files; uploadVid(e.dataTransfer.files[0]); });
+fi.addEventListener('change', function(e){ if(e.target.files[0]) uploadVid(e.target.files[0]); });
+
+async function uploadVid(file) {
+    st.innerHTML = '<p class="loading">上传并切分中...</p>';
+    var fd = new FormData(); fd.append('file', file);
+    var r = await fetch('/upload-video', {method:'POST', body:fd});
+    var d = await r.json();
+    if (r.ok) {
+        videoId = d.video_id;
+        st.innerHTML = '<p class="success">上传成功: ' + d.original_name + ' (' + d.size_mb + ' MB)</p>' +
+            '<p class="hint">' + d.hint + '</p>';
+        document.getElementById('csv-card').style.display = 'block';
+    } else {
+        st.innerHTML = '<p class="error">' + (d.error || d.detail) + '</p>';
+    }
+}
+})();
+
+// === CSV Upload ===
+(function() {
+var ci = document.getElementById('csv-input');
+ci.addEventListener('change', async function(e) {
+    var st = document.getElementById('csv-status');
+    var btn = document.getElementById('analyze-btn');
+    var files = Array.from(e.target.files);
+    st.innerHTML = '<p class="loading">上传 ' + files.length + ' 个 CSV...</p>';
+
+    for (var f of files) {
+        var fd = new FormData();
+        fd.append('file', f);
+        if (videoId) fd.append('video_id', videoId);
+        if (taskId) fd.append('task_id', taskId);
+        var r = await fetch('/upload-csv', {method:'POST', body:fd});
+        var d = await r.json();
+        if (r.ok) {
+            taskId = d.task_id;
+            csvFiles.push(d.csv_file);
+        }
+    }
+    st.innerHTML = '<p class="success">' + csvFiles.length + ' 个 CSV 已上传。任务: ' + taskId + '</p>';
+    btn.disabled = false;
+});
+})();
+
+async function runAnalysis() {
+    document.getElementById('analyze-status').style.display = 'block';
+    var fd = new FormData();
+    if (taskId) fd.append('task_id', taskId);
+    if (videoId) fd.append('video_id', videoId);
+    fd.append('analysis_type', document.getElementById('analysis-type').value);
+    var pid = document.getElementById('player-id-input').value;
+    if (pid) fd.append('player_id', pid);
+    fd.append('include_ball', document.getElementById('include-ball').checked ? '1' : '0');
+    var r = await fetch('/analyze', {method:'POST', body:fd});
+    var html = await r.text();
+    document.getElementById('results-card').style.display = 'block';
+    document.getElementById('results-content').innerHTML = html;
+    document.getElementById('analyze-status').style.display = 'none';
+}
+</script>
+</body>
+</html>

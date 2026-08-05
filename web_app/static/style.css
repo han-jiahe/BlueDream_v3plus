@@ -1,0 +1,40 @@
+/* BlueDream v3plus — Web App Styles */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f1923; color: #e0e0e0; min-height: 100vh;
+  line-height: 1.6;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 2rem; }
+h1 { color: #FF1493; margin-bottom: 0.25rem; font-size: 1.8rem; }
+h2 { color: #00BFFF; margin: 1.5rem 0 0.5rem; }
+h3 { color: #00BFFF; margin-bottom: 0.5rem; }
+.subtitle { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
+.card {
+  background: #1a2732; border-radius: 12px;
+  padding: 1.5rem; margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+input, select, button {
+  padding: 10px 16px; border-radius: 8px;
+  border: 1px solid #333; background: #0f1923;
+  color: #e0e0e0; font-size: 14px; width: 100%;
+  margin-bottom: 0.8rem;
+}
+button {
+  background: #FF1493; color: white; border: none;
+  cursor: pointer; font-weight: 600;
+}
+button:hover { background: #ff3399; }
+.btn {
+  display: inline-block; padding: 10px 24px;
+  background: #FF1493; color: white; text-decoration: none;
+  border-radius: 8px; font-weight: 600;
+}
+.btn:hover { background: #ff3399; }
+.chart-img { max-width: 100%; border-radius: 8px; margin: 0.5rem 0; }
+ul { padding-left: 1.5rem; }
+li { margin: 0.3rem 0; }
+a { color: #00BFFF; }
+pre { background: #111; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+code { background: #1a2732; padding: 2px 6px; border-radius: 4px; font-size: 13px; }

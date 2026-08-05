@@ -1,0 +1,38 @@
+# Models
+models/*.pt
+models/*.onnx
+models/*.pth
+!models/.gitkeep
+
+# Uploads & outputs
+web_app/uploads/
+web_app/outputs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+
+# Virtual env
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+!test/*.mp4
+
+# CSV outputs
+*.csv
+!test/*.csv
