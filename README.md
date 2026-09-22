@@ -9,7 +9,7 @@
 
 </div>
 
-> **Version**: v3.0++  
+> **Version**: 3.0++  
 > **Goal**: Build an open-source football match $\dot{VI}$ (**Variation of Information Rate**) analysis system based on the complete [Adit-jain/Soccer_Analysis](https://github.com/Adit-jain/Soccer_Analysis) source architecture, using YOLOv11n soccana + SigLIP team classification + 29-keypoint homography transformation.
 
 ---
