@@ -9,7 +9,7 @@
 
 </div>
 
-> **版本**: v3.0++  
+> **版本**: 3.0++  
 > **目标**: 基于 [Adit-jain/Soccer_Analysis](https://github.com/Adit-jain/Soccer_Analysis) 完整源码架构，融合 YOLOv11n soccana 目标检测、SigLIP 球队分类及 29 关键点单应性变换，构建开源足球比赛 $\dot{VI}$（信息变差率，Variation of Information Rate）分析系统。
 
 ---
