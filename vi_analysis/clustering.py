@@ -76,42 +76,109 @@ def print_clusters_info(clusters):
         ids = [p["track_id"] for p in points]
         print(f"  IDs: {ids}")
 
-def vi(cluster_A, cluster_B, n_nodes):
+def _node_to_cluster_index(clusters):
+    """返回 {track_id: 簇ID} 映射。"""
+    node_to_cid = {}
+    for cid, members in clusters.items():
+        for m in members:
+            node_to_cid[m["track_id"]] = cid
+    return node_to_cid
+
+
+def _contingency(cluster_A, cluster_B):
     """
-    计算两个聚类结果之间的 Variation of Information (VI)
-    cluster_A, cluster_B: 簇字典，格式同 hierarchical_clustering_by_nearest_neighbor 的输出
-    n_nodes: 总节点数（即该帧的球员+球门总数）
+    构建两个聚类之间的列联表（论文公式(2) 的 r_ij、p_i、q_j）。
+
+    两个聚类被视为对"两帧出现过节点并集"的划分：若某节点只出现在其中一个
+    聚类里（换人 / 漏检 / 该帧缺检测），则在另一个聚类里作为单元素簇补入，
+    使"出现/消失"的节点也正确计入信息变差，而不是静默丢失概率质量。
+
+    返回 (rij, pi, qj, node_pair, cnt)：
+      - cnt[i, j]  ：|x_i ∩ y_j|（交集节点数，精确整数）
+      - rij[i, j]  ：cnt[i, j] / n，n = 两聚类节点并集大小（论文 r_ij；
+                     完整 11v11 数据下并集恒为 24 = 22 球员 + 2 球门）
+      - pi, qj     ：rij 的行和、列和（论文 p_i、q_j，均按并集归一，和为 1）
+      - node_pair  ：{track_id: (行索引 i, 列索引 j)}，覆盖并集中的每个节点
     """
-    k = len(cluster_A)
-    l = len(cluster_B)
-    rij = np.zeros((k, l))
+    node_to_A = _node_to_cluster_index(cluster_A)
+    node_to_B = _node_to_cluster_index(cluster_B)
+    union = sorted(set(node_to_A) | set(node_to_B))
+    n = len(union)
 
-    # 将簇列表转换为列表形式方便索引
-    A_clusters = list(cluster_A.values())
-    B_clusters = list(cluster_B.values())
+    def _index_map(node_to_cid, cids):
+        cid_to_idx = {cid: i for i, cid in enumerate(sorted(cids))}
+        m = {}
+        next_i = len(cid_to_idx)
+        for tid in union:
+            if tid in node_to_cid:
+                m[tid] = cid_to_idx[node_to_cid[tid]]
+            else:
+                m[tid] = next_i  # 缺失节点补为单元素簇
+                next_i += 1
+        return m, next_i
 
-    for i in range(k):
-        for j in range(l):
-            # 计算交集大小
-            intersect = 0
-            for pa in A_clusters[i]:
-                for pb in B_clusters[j]:
-                    if pa["track_id"] == pb["track_id"]:
-                        intersect += 1
-                        break  # 每个track_id只匹配一次
-            rij[i, j] = intersect / n_nodes
+    A_map, k = _index_map(node_to_A, cluster_A.keys())
+    B_map, l = _index_map(node_to_B, cluster_B.keys())
 
-    pi = np.sum(rij, axis=1)  # 行和
-    qj = np.sum(rij, axis=0)  # 列和
+    cnt = np.zeros((k, l))
+    node_pair = {}
+    for tid in union:
+        i = A_map[tid]
+        j = B_map[tid]
+        cnt[i, j] += 1
+        node_pair[tid] = (i, j)
 
+    rij = cnt / n if n > 0 else np.zeros_like(cnt)
+    pi = rij.sum(axis=1)
+    qj = rij.sum(axis=0)
+    return rij, pi, qj, node_pair, cnt
+
+
+def vi(cluster_A, cluster_B):
+    """
+    计算两个聚类结果之间的 Variation of Information (VI)（论文公式(2)，label eq:3）
+
+        VI(X;Y) = -Σ_ij r_ij [log2(r_ij/p_i) + log2(r_ij/q_j)]   （bit，恒 ≥ 0）
+
+    cluster_A, cluster_B: 簇字典，格式同 hierarchical_clustering_by_nearest_neighbor 的输出。
+    节点数 n 取两个聚类的节点并集（完整 11v11 下 = 24 = 22 球员 + 2 球门），
+    单侧缺失的节点按单元素簇补入，因此换人/漏检也会被正确计入。
+    """
+    rij, pi, qj, _, _ = _contingency(cluster_A, cluster_B)
     vi_val = 0.0
+    k, l = rij.shape
     for i in range(k):
         for j in range(l):
-            if rij[i, j] > 0:
-                term1 = rij[i, j] * np.log2(rij[i, j] / pi[i]) if pi[i] > 0 else 0
-                term2 = rij[i, j] * np.log2(rij[i, j] / qj[j]) if qj[j] > 0 else 0
-                vi_val -= (term1 + term2)
-    return vi_val
+            r = rij[i, j]
+            if r > 0:
+                # r > 0 时必有 pi[i] >= r > 0 且 qj[j] >= r > 0，不会出现 log(0)
+                vi_val -= r * (np.log2(r / pi[i]) + np.log2(r / qj[j]))
+    return float(vi_val)
+
+
+def vi_per_node(cluster_A, cluster_B):
+    """
+    计算每个节点（球员/球门）在两聚类之间的 VI 贡献（论文公式(3)，label eq:4）：
+
+        VI^{p_ij} = -r_ij * [log2(r_ij/p_i) + log2(r_ij/q_j)] / |x_i ∩ y_j|
+
+    即把簇对 (x_i, y_j) 对总 VI 的贡献均分给交集中的每个节点。贡献恒 ≥ 0：
+    因为 r_ij ≤ p_i 且 r_ij ≤ q_j，两个 log 项 ≤ 0，取负后非负（无论簇合并还是
+    分裂都为正信息变差）。单侧缺失的节点按单元素簇补入（|x_i ∩ y_j| = 1），
+    所以换人/漏检节点也会得到其应得的贡献。
+    所有节点贡献之和 == vi()（总 VI）。
+    """
+    rij, pi, qj, node_pair, cnt = _contingency(cluster_A, cluster_B)
+    contrib = {}
+    for tid, (i, j) in node_pair.items():
+        intersect_size = int(cnt[i, j])  # = |x_i ∩ y_j|（精确整数，且 ≥ 1）
+        if intersect_size > 0:
+            r = rij[i, j]
+            term = r * (np.log2(r / pi[i]) + np.log2(r / qj[j]))
+            contrib[tid] = float(-term / intersect_size) + 0.0  # +0.0 归一化 -0.0
+        else:
+            contrib[tid] = 0.0
+    return contrib
 
 def visualize_clusters(frame, clusters, output_path=None):
     """

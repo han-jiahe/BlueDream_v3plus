@@ -1,5 +1,19 @@
 ﻿# -*- coding: utf-8 -*-
 """
+【附加项 · ADD-ON —— 非论文 VI】
+
+本模块计算的是“Voronoi 影响力”（球员 Voronoi 单元格面积占场地面积比），
+它是本项目的附加空间可视化 / 空间控制指标，**不是** arXiv:2102.11182 论文
+定义的 Variation of Information（聚类间信息变差，单位 bit）。
+
+论文口径的球员 VI / 球队 VI 请使用：
+  - clustering.py 的 vi() / vi_per_node()     （公式(2)/(3)，label eq:3/eq:4）
+  - clustering_vi.py 的 compute_vi_rates()     （逐时刻 VI 率，滚动窗口）
+
+平时研究（因果涌现、换人影响等）不使用本模块。
+
+—— 以下是原模块说明 ——
+
 Spatial Voronoi VI (Voronoi Influence) computation for soccer analysis.
 Pitch dimensions: 105m × 68m (FIFA standard)
 

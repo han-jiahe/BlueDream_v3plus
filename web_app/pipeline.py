@@ -18,8 +18,6 @@ import numpy as np
 # ── Ensure v3plus modules are importable ──────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "vi_analysis"))
-sys.path.insert(0, str(PROJECT_ROOT / "data_tools"))
 
 from config import OUTPUT_DIR, PITCH_LENGTH, PITCH_WIDTH
 
@@ -28,7 +26,7 @@ from config import OUTPUT_DIR, PITCH_LENGTH, PITCH_WIDTH
 
 def csv_to_samples(csv_path: Path, output_path: Optional[Path] = None) -> Path:
     """Convert detection CSV to samples.json format."""
-    from csv2json import build_samples
+    from data_tools.csv2json import build_samples
 
     if output_path is None:
         output_path = csv_path.parent / "samples.json"
@@ -58,7 +56,7 @@ def compute_vi_distribution(
     output_path: Optional[Path] = None,
     window_size: int = 100,  # 4 seconds @ 25 fps
 ) -> Path:
-    """Compute clustering VI distribution over sliding windows."""
+    """Compute the paper's clustering VI rate over a rolling window (per-timestep)."""
     from vi_analysis import compute_vi_distribution as _compute
 
     if output_path is None:
@@ -75,8 +73,8 @@ def compute_vi_distribution(
 # ── Voronoi VI ────────────────────────────────────────
 
 def compute_voronoi_vi(csv_path: Path, output_path: Optional[Path] = None) -> Path:
-    """Compute spatial Voronoi VI from detection CSV."""
-    from voronoi_vi import compute_voronoi_vi_from_csv
+    """【附加项】Compute spatial Voronoi influence VI from detection CSV (NOT the paper's VI)."""
+    from vi_analysis.voronoi_vi import compute_voronoi_vi_from_csv
 
     if output_path is None:
         output_path = csv_path.parent / "voronoi_vi.json"
@@ -115,14 +113,14 @@ def generate_vi_chart(vi_json: Path, output_path: Optional[Path] = None) -> Path
     with open(vi_json, "r", encoding="utf-8") as f:
         vi_data = json.load(f)
 
-    times = [d["window_time"] for d in vi_data]
-    vi_vals = [d["average_vi"] for d in vi_data]
+    times = [d["timestamp"] for d in vi_data]
+    vi_vals = [d["vi_rate"] for d in vi_data]
 
     fig, ax = plt.subplots(figsize=(12, 4))
     ax.plot(times, vi_vals, color="#FF1493", linewidth=2)
     ax.set_xlabel("Time (seconds)")
-    ax.set_ylabel("Average VI")
-    ax.set_title("Information Flow (VI) Over Time")
+    ax.set_ylabel("VI rate (bits/s)")
+    ax.set_title("Information Variation Rate (VI-dot) Over Time")
     ax.grid(True, alpha=0.3)
 
     if output_path is None:
@@ -220,7 +218,7 @@ def generate_vi_density(vi_json: Path, output_path: Optional[Path] = None) -> Pa
 
     with open(vi_json, "r", encoding="utf-8") as f:
         data = json.load(f)
-    vi_values = np.array([d["average_vi"] for d in data])
+    vi_values = np.array([d["vi_rate"] for d in data])
     vi_values = vi_values[vi_values >= 0]
 
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -236,7 +234,7 @@ def generate_vi_density(vi_json: Path, output_path: Optional[Path] = None) -> Pa
                label=f"Mean: {np.mean(vi_values):.3f}")
     ax.axvline(np.median(vi_values), color="orange", ls="--",
                label=f"Median: {np.median(vi_values):.3f}")
-    ax.set_xlabel("Average VI"); ax.set_ylabel("Density")
+    ax.set_xlabel("VI rate (bits/s)"); ax.set_ylabel("Density")
     ax.set_title("VI Probability Density Distribution")
     ax.legend(); ax.grid(alpha=0.6)
     plt.tight_layout()
